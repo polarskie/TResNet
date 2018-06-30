@@ -24,6 +24,35 @@ class TResNetClassify:
                  display=False,
                  printlog=False,
                  GPU=1):
+        ################################################################################################################
+        # feature_size: dimension of the input
+        # domain_size: number of the domains
+        # label_size: number of the classes
+        # alpha: a trade off hyper-parameter. see the next one for detail
+        # beta: a trade off hyper-parameter.
+        #       the loss function of the network is
+        #           (1 - beta)((1 - alpha) * label_prediction_loss + alpha * domain_prediction_loss) + beta * regularization_term
+        # residual_type: a str containing or not 'w' and 'b'. if it contains 'w', different domains will have feature
+        #                extractors with different W. i.e., W(k) + res_W1(k) for domain 1 in layer k, W(k) + res_W2(k)
+        #                for domain 2 in layer k, etc. if it contains 'b', different domains will have feature
+        #                extractors with different bias b. i.e., b(k) + res_b1(k) for domain 1 in layer k, b(k) + res_b2(k)
+        #                for domain 2 in layer k, etc. if it is '', the network becomes DANN (Domain-Adversarial training
+        #                of Neural Network)
+        # lr: learning rate of the optimizer
+        # max_flip_ratio: the factor for the flip_gradient module
+        # lN: type of norms for the regularization
+        # fea_ext_layers: shape of the feature extractor. the Ws for the feature extractor will be in the shape of
+        #                 [feature_size, fea_ext_layers[0]], [fea_ext_layers[0], fea_ext_layers[1]], [fea_ext_layers[1],
+        #                 fea_ext_layers[2]], etc
+        # dom_dis_layers: shape of the domain discriminator. see fea_ext_layers for details
+        # lab_pre_layers: shape of the label predictor. see fea_ext_layers for details
+        # activation_function: can be one of "sigmoid", "relu", "elu", and "leaky_relu". the default is "identity"
+        # info: any str that would be printed during the training
+        # id: identifier of this instance
+        # display: whether or not show the training status with graphs and plots (time consuming)
+        # printlog: whether or not print the training status to the terminal
+        # GPU: which gpu to use. for single gpu, the default '1' should be fine
+        ################################################################################################################
         os.environ["CUDA_VISIBLE_DEVICES"] = str(GPU)
         self.feature_size = feature_size
         self.domain_size = domain_size
@@ -88,40 +117,27 @@ class TResNetClassify:
 
     def get_flip_ratio(self):
         return self.max_flip_ratio
-        # if self.last_dl is None:
-        #     return 0.
-        # self.dl_buf.append(self.last_dl)
-        # if len(self.dl_buf) > 10:
-        #     self.dl_buf = self.dl_buf[1:]
-        # if (len(self.dl_buf) >= 10 and np.std(self.dl_buf) <= 0.0) or self.last_dl < 0.5:
-        #     self.ad_train_switch = True
-        # if self.ad_train_switch:
-        #     if self.last_dl > np.log(self.domain_size):
-        #         self.ad_train_switch = False
-        #         return 0
-        #     return np.max([0., self.max_flip_ratio - self.last_dl * self.max_flip_ratio / np.log(self.domain_size)])
-        # return 0
-
-    def get_flip_ratio_inverse(self):
-        if self.last_dl is None:
-            return 0.
-        # if self.last_dl >= np.log(self.domain_size):
-        #     return 0.
-        return np.min((self.max_flip_ratio, (1.0/self.last_dl) - (1.0/np.log(self.domain_size))))
-
-    def get_flip_ratio_log(self):
-        if self.last_dl is None:
-            return 0.
-        # if self.last_dl >= np.log(self.domain_size):
-        #     return 0.
-        return np.min((self.max_flip_ratio, np.log(self.last_dl * np.log(self.domain_size))))
 
     def fit(self, X, D, Y, tX, tD, tY, vX=None, vD=None, vY=None, epoch=5000, monitor_at=1, batch_size=100):
-        """label matrix Y should have elements larger than 0. An element with -1 value is non-labeled entry"""
-        # thd = Thread(target=change_lambda, args=(self, ))
-        # thd.daemon = True
-        # thd.start()
-        # self.dataset = BalancedBatchGenerator(1, X, D, Y, batch_size=100)
+        ################################################################################################################
+        # X: the input data for the network in form of numpy array with shape [sample_num, feature_size]. both data
+        #    samples for source and target domains should be provided
+        # D: the domain information for X, in form of numpy array with shape [sample_num, domain_size]. each row
+        #    contains several '0's and one or zero '1'. the domain is indicated by the position of the '1'. e.g., if we
+        #    have three data samples. the first one belongs to domain 0, the second one belongs to domain 1, and the
+        #    third one belongs to domain 2. the corresponding D could be
+        #    [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+        # Y: the corresponding label for X, in form of numpy array with shape [sample_num, label_size]. each row
+        #    contains several '0's and one or zero '1'. the class is indicated by the position of the '1'. for data
+        #    samples whose labels are unknown, use all-zero vector. e.g., if we have three data samples. the first one
+        #    belongs to class 0, the second one belongs to class 1, and the third one is not labeled. the corresponding
+        #    Y could be [[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]]
+        # tX: the input data for the network for test
+        # tD: the domain information for tX
+        # tY: the label information for tX
+        # epoch: the number of epochs to train before stop
+        # monitor_at: the interval between the evaluations of the network with tX, tD, and tY.
+        # batch_size: batch　size
         plt.close("all")
         self.dataset = BatchGenerator(X, D, Y, batch_size=batch_size)
         # train_regression_losses = []

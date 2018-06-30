@@ -81,6 +81,7 @@ for target_dom_i in range(n_domain):
                 'printlog': True,
                 'display': True,
                 'lr': 0.001,
+                'epoch': 100,
                 'alpha': 0.5,
                 'beta': 0.0,
                 'max_flip_ratio': 1.0,
